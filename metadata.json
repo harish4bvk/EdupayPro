@@ -1,0 +1,5 @@
+{
+  "name": "EduPay Pro: School Fee Management",
+  "description": "A comprehensive school fee management module featuring role-based access, student bulk uploads, flexible fee structures, partial payment tracking, and AI-powered financial insights.",
+  "requestFramePermissions": []
+}
