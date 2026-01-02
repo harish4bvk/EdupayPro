@@ -2,9 +2,9 @@
 import { Student, ClassFeeStructure, User, UserRole } from '../types';
 
 export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'John Admin', email: 'admin@school.com', role: UserRole.ADMIN },
-  { id: 'u2', name: 'Sara Accounts', email: 'accounts@school.com', role: UserRole.ACCOUNTS },
-  { id: 'u3', name: 'Mike Staff', email: 'staff@school.com', role: UserRole.STAFF },
+  { id: 'u1', name: 'John Admin', email: 'admin@school.com', role: UserRole.ADMIN, password: 'admin123' },
+  { id: 'u2', name: 'Sara Accounts', email: 'accounts@school.com', role: UserRole.ACCOUNTS, password: 'staff123' },
+  { id: 'u3', name: 'Mike Staff', email: 'staff@school.com', role: UserRole.STAFF, password: 'staff123' },
 ];
 
 export const MOCK_STRUCTURES: ClassFeeStructure[] = [

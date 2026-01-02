@@ -50,27 +50,33 @@ const App: React.FC = () => {
     e.preventDefault();
     setLoginError('');
 
-    // Demo authentication logic
-    let isValid = false;
-    if (pendingRole === UserRole.ADMIN) {
-      isValid = password === 'admin123';
-    } else if (pendingRole === UserRole.ACCOUNTS) {
-      isValid = username.toLowerCase() === 'accounts' && password === 'staff123';
-    }
-
-    if (isValid) {
-      const userToLogin = users.find(u => u.role === pendingRole) || users[0];
+    // Search for a user with the matching role and credentials
+    const foundUser = users.find(u => {
+      const roleMatch = u.role === pendingRole;
+      const passMatch = u.password === password;
       
-      // Update global user list with online status and timestamp
+      // For Admin, we don't need a specific username in this simplified mock
+      if (pendingRole === UserRole.ADMIN) {
+        return roleMatch && passMatch;
+      } 
+      
+      // For Staff/Accounts, we check username (stored in email or name for now) 
+      // or specifically 'accounts' for the mock user
+      const userMatch = u.email.toLowerCase() === username.toLowerCase() || 
+                        u.name.toLowerCase() === username.toLowerCase() ||
+                        (u.role === UserRole.ACCOUNTS && username.toLowerCase() === 'accounts');
+      
+      return roleMatch && userMatch && passMatch;
+    });
+
+    if (foundUser) {
       const updatedUsers = users.map(u => 
-        u.id === userToLogin.id 
+        u.id === foundUser.id 
           ? { ...u, isOnline: true, lastLogin: new Date().toLocaleString() } 
           : u
       );
-      
       setUsers(updatedUsers);
-      const loggedInUser = updatedUsers.find(u => u.id === userToLogin.id)!;
-      
+      const loggedInUser = updatedUsers.find(u => u.id === foundUser.id)!;
       setCurrentUser(loggedInUser);
       setIsLoggedIn(true);
       setPendingRole(null);
@@ -97,17 +103,14 @@ const App: React.FC = () => {
 
   const handleAddPayment = (payment: PaymentRecord) => {
     setPayments(prev => [payment, ...prev]);
-    
     setStudents(prev => prev.map(s => {
       if (s.id === payment.studentId) {
         const newTotalPaid = s.totalPaid + payment.amount;
-        const struct = structures.find(st => st.className === s.className);
+        const struct = structures.find(st => st.className === s.className && st.academicYear === globalSession);
         const expectedTotal = (struct?.total || 0) + s.previousYearDues - s.discount;
-        
         let newStatus: Student['status'] = 'PARTIAL';
         if (newTotalPaid >= expectedTotal) newStatus = 'PAID';
         else if (newTotalPaid === 0) newStatus = 'UNPAID';
-
         return { ...s, totalPaid: newTotalPaid, status: newStatus };
       }
       return s;
@@ -115,7 +118,9 @@ const App: React.FC = () => {
   };
 
   const handleAddStudents = (newStudents: Student[]) => {
-    setStudents(prev => [...prev, ...newStudents]);
+    // Force new students into the active global session
+    const normalized = newStudents.map(s => ({ ...s, academicYear: globalSession }));
+    setStudents(prev => [...prev, ...normalized]);
   };
 
   const handleUpdateDiscount = (studentId: string, discount: number) => {
@@ -127,39 +132,20 @@ const App: React.FC = () => {
     setActiveView('COLLECTION');
   };
 
-  const handleAddUser = (newUser: User) => {
-    setUsers(prev => [...prev, newUser]);
-  };
-
-  const handleUpdateUser = (updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    if (userId === currentUser?.id) {
-      alert("You cannot delete your own account.");
-      return;
-    }
-    setUsers(prev => prev.filter(u => u.id !== userId));
-  };
-
-  const handleAddStructure = (newStructure: ClassFeeStructure) => {
-    setStructures(prev => [...prev, newStructure]);
-  };
-
-  const handleUpdateStructure = (updatedStructure: ClassFeeStructure) => {
-    setStructures(prev => prev.map(s => s.id === updatedStructure.id ? updatedStructure : s));
-  };
-
-  const handleDeleteStructure = (structureId: string) => {
-    setStructures(prev => prev.filter(s => s.id !== structureId));
-  };
+  const handleAddUser = (newUser: User) => setUsers(prev => [...prev, newUser]);
+  const handleUpdateUser = (updatedUser: User) => setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+  const handleDeleteUser = (userId: string) => setUsers(prev => prev.filter(u => u.id !== userId));
+  const handleAddStructure = (newStructure: ClassFeeStructure) => setStructures(prev => [...prev, newStructure]);
+  const handleUpdateStructure = (updatedStructure: ClassFeeStructure) => setStructures(prev => prev.map(s => s.id === updatedStructure.id ? updatedStructure : s));
+  const handleDeleteStructure = (structureId: string) => setStructures(prev => prev.filter(s => s.id !== structureId));
 
   useEffect(() => {
-    if (activeView !== 'COLLECTION') {
-      setPreSelectedStudentId(null);
-    }
+    if (activeView !== 'COLLECTION') setPreSelectedStudentId(null);
   }, [activeView]);
+
+  // Filter Data for Operational Modules based on Global Session
+  const filteredStudents = students.filter(s => s.academicYear === globalSession);
+  const filteredStructures = structures.filter(s => s.academicYear === globalSession);
 
   if (!isLoggedIn) {
     return (
@@ -181,37 +167,22 @@ const App: React.FC = () => {
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center">
                   <h2 className="text-slate-900 font-bold text-lg">Select Login Profile</h2>
-                  <p className="text-slate-500 text-sm">Choose your access level to continue</p>
                 </div>
-                
                 <div className="grid grid-cols-1 gap-4">
-                  <button 
-                    onClick={() => setPendingRole(UserRole.ADMIN)}
-                    className="group flex items-center justify-between p-4 rounded-2xl border border-slate-200 hover:border-indigo-600 hover:bg-indigo-50 transition-all text-left"
-                  >
+                  <button onClick={() => setPendingRole(UserRole.ADMIN)} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-200 hover:border-indigo-600 hover:bg-indigo-50 transition-all text-left">
                     <div className="flex items-center gap-3">
-                      <div className="bg-indigo-100 text-indigo-600 p-3 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <ShieldCheck className="w-5 h-5" />
-                      </div>
+                      <div className="bg-indigo-100 text-indigo-600 p-3 rounded-xl group-hover:bg-indigo-600 group-hover:text-white transition-colors"><ShieldCheck className="w-5 h-5" /></div>
                       <div>
                         <p className="font-bold text-slate-900">Administrator</p>
-                        <p className="text-xs text-slate-500">Full control & settings access</p>
                       </div>
                     </div>
                     <ArrowLeft className="w-5 h-5 text-slate-300 group-hover:text-indigo-600 rotate-180" />
                   </button>
-                  
-                  <button 
-                    onClick={() => setPendingRole(UserRole.ACCOUNTS)}
-                    className="group flex items-center justify-between p-4 rounded-2xl border border-slate-200 hover:border-emerald-600 hover:bg-emerald-50 transition-all text-left"
-                  >
+                  <button onClick={() => setPendingRole(UserRole.ACCOUNTS)} className="group flex items-center justify-between p-4 rounded-2xl border border-slate-200 hover:border-emerald-600 hover:bg-emerald-50 transition-all text-left">
                     <div className="flex items-center gap-3">
-                      <div className="bg-emerald-100 text-emerald-600 p-3 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                        <LogIn className="w-5 h-5" />
-                      </div>
+                      <div className="bg-emerald-100 text-emerald-600 p-3 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-colors"><LogIn className="w-5 h-5" /></div>
                       <div>
                         <p className="font-bold text-slate-900">Accounts & Billing</p>
-                        <p className="text-xs text-slate-500">Fee collection & basic reports</p>
                       </div>
                     </div>
                     <ArrowLeft className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 rotate-180" />
@@ -220,26 +191,12 @@ const App: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleLoginAttempt} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                <button 
-                  type="button"
-                  onClick={() => { setPendingRole(null); setPassword(''); setUsername(''); setLoginError(''); }}
-                  className="flex items-center gap-2 text-indigo-600 text-sm font-semibold hover:text-indigo-800 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to profiles
+                <button type="button" onClick={() => { setPendingRole(null); setPassword(''); setUsername(''); setLoginError(''); }} className="flex items-center gap-2 text-indigo-600 text-sm font-semibold hover:text-indigo-800 transition-colors">
+                  <ArrowLeft className="w-4 h-4" /> Back to profiles
                 </button>
-
                 <div>
-                  <h2 className="text-slate-900 font-bold text-xl">
-                    {pendingRole === UserRole.ADMIN ? 'Admin Login' : 'Staff Login'}
-                  </h2>
-                  <p className="text-slate-500 text-sm mt-1">
-                    {pendingRole === UserRole.ADMIN 
-                      ? 'Enter your administrator password.' 
-                      : 'Enter your credentials to manage collections.'}
-                  </p>
+                  <h2 className="text-slate-900 font-bold text-xl">{pendingRole === UserRole.ADMIN ? 'Admin Login' : 'Staff Login'}</h2>
                 </div>
-
                 <div className="space-y-4">
                   {pendingRole === UserRole.ACCOUNTS && (
                     <div className="space-y-1">
@@ -247,62 +204,41 @@ const App: React.FC = () => {
                       <div className="relative">
                         <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input 
-                          type="text"
-                          autoFocus
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          placeholder="accounts"
-                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all"
-                          required
+                          type="text" 
+                          autoFocus 
+                          value={username} 
+                          onChange={(e) => setUsername(e.target.value)} 
+                          onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter your username')}
+                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                          placeholder="accounts" 
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-black focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-medium" 
+                          required 
                         />
                       </div>
                     </div>
                   )}
-
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
-                        type="password"
-                        autoFocus={pendingRole === UserRole.ADMIN}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${loginError ? 'border-rose-300 ring-rose-100' : 'border-slate-200 focus:ring-indigo-100'} focus:ring-4 focus:border-indigo-600 outline-none transition-all`}
-                        required
+                        type="password" 
+                        autoFocus={pendingRole === UserRole.ADMIN} 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter your password')}
+                        onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                        placeholder="••••••••" 
+                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${loginError ? 'border-rose-300 ring-rose-100' : 'border-slate-200 focus:ring-indigo-100'} bg-white text-black focus:ring-4 focus:border-indigo-600 outline-none transition-all font-medium`} 
+                        required 
                       />
                     </div>
-                    {loginError && (
-                      <div className="flex items-center gap-2 text-rose-600 text-xs font-medium mt-2 p-2 bg-rose-50 rounded-lg">
-                        <AlertCircle className="w-4 h-4" />
-                        {loginError}
-                      </div>
-                    )}
+                    {loginError && <div className="flex items-center gap-2 text-rose-600 text-xs font-medium mt-2 p-2 bg-rose-50 rounded-lg"><AlertCircle className="w-4 h-4" />{loginError}</div>}
                   </div>
-
-                  <button 
-                    type="submit"
-                    className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
-                  >
-                    Verify & Access
-                  </button>
-                  
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <p className="text-center text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Demo Credentials</p>
-                    <p className="text-center text-[11px] font-mono text-slate-600">
-                      {pendingRole === UserRole.ADMIN 
-                        ? 'Password: admin123' 
-                        : 'User: accounts / Pass: staff123'}
-                    </p>
-                  </div>
+                  <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2">Login</button>
                 </div>
               </form>
             )}
-            
-            <p className="mt-8 text-center text-xs text-slate-400">
-              Authorized Access Only • EduPay Pro v1.0.1
-            </p>
           </div>
         </div>
       </div>
@@ -325,8 +261,8 @@ const App: React.FC = () => {
       case 'STUDENTS':
         return (
           <StudentManagement 
-            students={students} 
-            structures={structures} 
+            students={filteredStudents} 
+            structures={filteredStructures} 
             onAddStudents={handleAddStudents} 
             onApplyDiscount={handleUpdateDiscount}
             onCollectFee={handleGoToPayment}
@@ -335,30 +271,9 @@ const App: React.FC = () => {
           />
         );
       case 'FEE_STRUCTURE':
-        if (currentUser?.role !== UserRole.ADMIN) {
-          return (
-            <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center space-y-6">
-              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500">
-                <ShieldAlert className="w-10 h-10" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Access Restricted</h2>
-                <p className="text-slate-500 mt-2 max-w-xs mx-auto">
-                  Only Administrators have the authority to manage global fee structures.
-                </p>
-              </div>
-              <button 
-                onClick={() => setActiveView('DASHBOARD')}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
-              >
-                Return to Dashboard
-              </button>
-            </div>
-          );
-        }
         return (
           <FeeStructureManagement 
-            structures={structures}
+            structures={filteredStructures}
             onAddStructure={handleAddStructure}
             onUpdateStructure={handleUpdateStructure}
             onDeleteStructure={handleDeleteStructure}
@@ -366,53 +281,26 @@ const App: React.FC = () => {
           />
         );
       case 'COLLECTION':
-        return <PaymentModule 
-          students={students} 
-          structures={structures} 
-          onAddPayment={handleAddPayment} 
-          currentUser={currentUser} 
-          initialStudentId={preSelectedStudentId || undefined}
-        />;
-      case 'REPORTS':
         return (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4">
-             <BarChart3 className="w-16 h-16 text-slate-200 mx-auto" />
-             <h2 className="text-xl font-bold text-slate-900">Advanced Reporting Module</h2>
-             <p className="text-slate-500 max-w-md mx-auto">Detailed financial breakdowns, monthly collection graphs, and overdue payment audits will be displayed here.</p>
-             <div className="flex justify-center gap-4 pt-6">
-                <button className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm">Download Daily Report</button>
-                <button className="px-6 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg font-bold text-sm">Monthly Summary</button>
-             </div>
-          </div>
+          <PaymentModule 
+            students={filteredStudents} 
+            structures={filteredStructures} 
+            onAddPayment={handleAddPayment} 
+            currentUser={currentUser} 
+            initialStudentId={preSelectedStudentId || undefined}
+            currentSession={globalSession}
+          />
         );
       case 'USERS':
-        if (currentUser?.role !== UserRole.ADMIN) {
-          return (
-            <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center space-y-6">
-              <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500">
-                <ShieldAlert className="w-10 h-10" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Access Restricted</h2>
-                <p className="text-slate-500 mt-2 max-w-xs mx-auto">
-                  Only users with Administrator privileges can access the User Management portal.
-                </p>
-              </div>
-              <button 
-                onClick={() => setActiveView('DASHBOARD')}
-                className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
-              >
-                Return to Dashboard
-              </button>
-            </div>
-          );
-        }
         return (
           <UserManagement 
             users={users} 
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
+            globalSession={globalSession}
+            onSessionChange={setGlobalSession}
+            isAdmin={currentUser?.role === UserRole.ADMIN}
           />
         );
       default:
@@ -421,12 +309,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout 
-      activeView={activeView} 
-      setActiveView={setActiveView} 
-      currentUser={currentUser}
-      onLogout={handleLogout}
-    >
+    <Layout activeView={activeView} setActiveView={setActiveView} currentUser={currentUser} onLogout={handleLogout}>
       {renderView()}
     </Layout>
   );

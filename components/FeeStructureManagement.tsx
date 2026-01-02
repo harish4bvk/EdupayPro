@@ -187,7 +187,7 @@ const FeeStructureManagement: React.FC<FeeStructureManagementProps> = ({
                   <input 
                     type="text" 
                     required
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-50 outline-none focus:border-indigo-500 transition-all font-medium"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-black focus:ring-4 focus:ring-indigo-50 outline-none focus:border-indigo-500 transition-all font-medium"
                     placeholder="e.g. Class 10"
                     value={formData.className}
                     onChange={e => setFormData({...formData, className: e.target.value})}
@@ -196,7 +196,7 @@ const FeeStructureManagement: React.FC<FeeStructureManagementProps> = ({
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Academic Year</label>
                   <select 
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-indigo-50 outline-none focus:border-indigo-500 transition-all font-medium"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-black focus:ring-4 focus:ring-indigo-50 outline-none focus:border-indigo-500 transition-all font-medium"
                     value={formData.academicYear}
                     onChange={e => setFormData({...formData, academicYear: e.target.value})}
                   >
@@ -227,7 +227,7 @@ const FeeStructureManagement: React.FC<FeeStructureManagementProps> = ({
                           type="text" 
                           required
                           placeholder="Component Name (e.g. Lab Fee)"
-                          className="w-full px-4 py-2 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
+                          className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white text-black focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm"
                           value={comp.name}
                           onChange={e => updateComponent(idx, 'name', e.target.value)}
                         />
@@ -239,7 +239,7 @@ const FeeStructureManagement: React.FC<FeeStructureManagementProps> = ({
                             type="number" 
                             required
                             placeholder="0"
-                            className="w-full pl-7 pr-4 py-2 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
+                            className="w-full pl-7 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-black focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold"
                             value={comp.amount}
                             onChange={e => updateComponent(idx, 'amount', Number(e.target.value))}
                           />

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   UserPlus, 
   Edit2, 
@@ -11,7 +11,12 @@ import {
   Search,
   Activity,
   History,
-  Info
+  Info,
+  Globe,
+  Settings2,
+  CheckCircle2,
+  Lock,
+  RefreshCw
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 
@@ -20,18 +25,40 @@ interface UserManagementProps {
   onAddUser: (user: User) => void;
   onUpdateUser: (user: User) => void;
   onDeleteUser: (userId: string) => void;
+  globalSession?: string;
+  onSessionChange?: (session: string) => void;
+  isAdmin?: boolean;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpdateUser, onDeleteUser }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ 
+  users, 
+  onAddUser, 
+  onUpdateUser, 
+  onDeleteUser,
+  globalSession,
+  onSessionChange,
+  isAdmin
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Local state for the session selector before applying it
+  const [localSession, setLocalSession] = useState(globalSession || '2024-25');
+
+  // Sync local session if global session changes from elsewhere
+  useEffect(() => {
+    if (globalSession) {
+      setLocalSession(globalSession);
+    }
+  }, [globalSession]);
 
   // Form states
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: UserRole.STAFF
+    role: UserRole.STAFF,
+    password: ''
   });
 
   const filteredUsers = users.filter(u => 
@@ -39,15 +66,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     u.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const activeUsers = users.filter(u => u.isOnline);
-
   const handleOpenModal = (user?: User) => {
     if (user) {
       setEditingUser(user);
-      setFormData({ name: user.name, email: user.email, role: user.role });
+      setFormData({ 
+        name: user.name, 
+        email: user.email, 
+        role: user.role, 
+        password: user.password || '' 
+      });
     } else {
       setEditingUser(null);
-      setFormData({ name: '', email: '', role: UserRole.STAFF });
+      setFormData({ 
+        name: '', 
+        email: '', 
+        role: UserRole.STAFF, 
+        password: 'staff123' // default initial password
+      });
     }
     setShowModal(true);
   };
@@ -66,24 +101,34 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
     setShowModal(false);
   };
 
+  const handleApplySession = () => {
+    if (onSessionChange) {
+      onSessionChange(localSession);
+    }
+  };
+
+  const isSessionChanged = localSession !== globalSession;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Controls</h2>
-          <p className="text-slate-500 font-medium">Manage personnel access and monitor system activity.</p>
+          <p className="text-slate-500 font-medium">Manage personnel access and global school settings.</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-bold transition-all shadow-lg shadow-indigo-100"
-        >
-          <UserPlus className="w-5 h-5" />
-          Provision Access
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-bold transition-all shadow-lg shadow-indigo-100"
+          >
+            <UserPlus className="w-5 h-5" />
+            Provision Access
+          </button>
+        )}
       </div>
 
-      {/* Admin Monitoring: Active Sessions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* User Roster */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
@@ -109,12 +154,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">User Profile</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Activity</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredUsers.map(user => (
                     <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
@@ -139,35 +182,26 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                           {user.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-xs font-medium text-slate-600">
-                        {user.lastLogin || <span className="text-slate-300 italic">No record</span>}
-                      </td>
-                      <td className="px-6 py-4">
-                        {user.isOnline ? (
-                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100 w-fit">
-                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                            Live
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 w-fit">
-                            Offline
-                          </span>
-                        )}
-                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-1">
-                          <button 
-                            onClick={() => handleOpenModal(user)}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => onDeleteUser(user.id)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button 
+                                onClick={() => handleOpenModal(user)}
+                                title="Edit Profile & Password"
+                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => onDeleteUser(user.id)}
+                                title="Revoke Access"
+                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -178,48 +212,72 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
           </div>
         </div>
 
-        {/* Sidebar activity tracking for admin */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl shadow-slate-200">
-            <h3 className="font-black text-xs uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-emerald-400" />
-              Live Access Map
-            </h3>
-            
-            <div className="space-y-4">
-              {activeUsers.length > 0 ? activeUsers.map(user => (
-                <div key={user.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors">
+        {/* Global Configuration Sidebar */}
+        {isAdmin && onSessionChange && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 space-y-8">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
+                  <Settings2 className="w-5 h-5" />
+                </div>
+                <h3 className="text-lg font-black text-slate-900">Global Config</h3>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Globe className="w-3 h-3 text-indigo-500" />
+                    System Academic Session
+                  </label>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center font-black">
-                      {user.name.charAt(0)}
+                    <select 
+                      className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 font-black outline-none focus:ring-4 focus:ring-indigo-50 transition-all appearance-none"
+                      value={localSession}
+                      onChange={(e) => setLocalSession(e.target.value)}
+                    >
+                      <option value="2023-24">Session 2023-24</option>
+                      <option value="2024-25">Session 2024-25</option>
+                      <option value="2025-26">Session 2025-26</option>
+                    </select>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <button
+                      onClick={handleApplySession}
+                      disabled={!isSessionChanged}
+                      className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+                        isSessionChanged 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98]' 
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      {isSessionChanged ? <CheckCircle2 className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                      Set as Active Session
+                    </button>
+                  </div>
+
+                  {!isSessionChanged && (
+                    <div className="flex items-center justify-center gap-2 mt-2 px-2 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                      <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Currently Operational</span>
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm">{user.name}</p>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">{user.role}</p>
-                  </div>
+                  )}
+
+                  <p className="text-[10px] text-slate-400 font-medium leading-relaxed px-1 mt-4">
+                    Confirming will update visibility for all operational modules across the entire school management system.
+                  </p>
                 </div>
-              )) : (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <History className="w-6 h-6 text-slate-600" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">No active sessions</p>
+                
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
+                  <Info className="w-5 h-5 text-amber-500 shrink-0" />
+                  <p className="text-[10px] text-amber-700 font-bold leading-normal">
+                    Changing the active session will immediately update the collection terminal for all staff accounts.
+                  </p>
                 </div>
-              )}
-            </div>
-            
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <div className="flex items-center gap-2 p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
-                <Info className="w-4 h-4 text-indigo-400 shrink-0" />
-                <p className="text-[10px] leading-relaxed text-indigo-200">
-                  Online status is updated in real-time as users authenticate with their designated profiles.
-                </p>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {showModal && (
@@ -275,6 +333,28 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                 </select>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block">
+                  {editingUser ? 'Reset Password' : 'Initial Password'}
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-indigo-50 outline-none focus:border-indigo-600 transition-all font-bold"
+                    placeholder="Enter new password"
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                  />
+                </div>
+                {editingUser && (
+                  <p className="text-[10px] text-indigo-600 font-bold mt-1 px-1">
+                    Updating this field will reset the user's login credentials.
+                  </p>
+                )}
+              </div>
+
               <div className="pt-4 flex gap-3">
                 <button 
                   type="button"
@@ -285,8 +365,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onAddUser, onUpd
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
                 >
+                  {editingUser ? <RefreshCw className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                   {editingUser ? 'Update' : 'Confirm'}
                 </button>
               </div>

@@ -10,6 +10,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  password?: string;
   lastLogin?: string;
   isOnline?: boolean;
 }
@@ -50,6 +51,7 @@ export interface PaymentRecord {
   paymentType: 'MONTHLY' | 'TERM' | 'YEARLY' | 'PART';
   method: 'CASH' | 'CARD' | 'ONLINE' | 'CHEQUE';
   receivedBy: string;
+  transactionId?: string;
   note?: string;
 }
 
