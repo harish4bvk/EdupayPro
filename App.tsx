@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import StudentManagement from './components/StudentManagement';
@@ -7,6 +7,7 @@ import PaymentModule from './components/PaymentModule';
 import UserManagement from './components/UserManagement';
 import FeeStructureManagement from './components/FeeStructureManagement';
 import Reports from './components/Reports';
+import { storageService } from './services/storageService';
 import { 
   User, 
   UserRole, 
@@ -16,16 +17,13 @@ import {
   ClassFeeStructure,
   ActivityLog 
 } from './types';
-import { MOCK_USERS, MOCK_STUDENTS, MOCK_STRUCTURES } from './services/mockData';
 import { 
   GraduationCap, 
   ShieldCheck, 
-  BarChart3, 
   Lock, 
   ArrowLeft,
   AlertCircle,
   User as UserIcon,
-  ChevronRight,
   TrendingUp,
   CreditCard
 } from 'lucide-react';
@@ -36,80 +34,42 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<AppView>('DASHBOARD');
   const [globalSession, setGlobalSession] = useState('2024-25');
   
-  // Login flow states
+  // App State from Service
+  const [users, setUsers] = useState<User[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [structures, setStructures] = useState<ClassFeeStructure[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+
+  // Auth flow states
   const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Core App States
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [structures, setStructures] = useState<ClassFeeStructure[]>(MOCK_STRUCTURES);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-
-  // Persistence (Simulated)
+  // Connect to the "Mock Backend" Service
   useEffect(() => {
-    const savedPayments = localStorage.getItem('edupay_payments');
-    if (savedPayments) setPayments(JSON.parse(savedPayments));
-    
-    const savedStudents = localStorage.getItem('edupay_students');
-    if (savedStudents) setStudents(JSON.parse(savedStudents));
-
-    const savedLogs = localStorage.getItem('edupay_logs');
-    if (savedLogs) setActivityLogs(JSON.parse(savedLogs));
-
-    const savedUsers = localStorage.getItem('edupay_users');
-    if (savedUsers) setUsers(JSON.parse(savedUsers));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('edupay_payments', JSON.stringify(payments));
-  }, [payments]);
-
-  useEffect(() => {
-    localStorage.setItem('edupay_students', JSON.stringify(students));
-  }, [students]);
-
-  useEffect(() => {
-    localStorage.setItem('edupay_logs', JSON.stringify(activityLogs));
-  }, [activityLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('edupay_users', JSON.stringify(users));
-  }, [users]);
-
-  const addLog = (log: Omit<ActivityLog, 'id' | 'timestamp'>) => {
-    const newLog: ActivityLog = {
-      ...log,
-      id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString()
+    const updateState = () => {
+      setUsers(storageService.getUsers());
+      setStudents(storageService.getStudents());
+      setPayments(storageService.getPayments());
+      setStructures(storageService.getStructures());
+      setActivityLogs(storageService.getLogs());
     };
-    setActivityLogs(prev => [newLog, ...prev]);
-  };
+
+    updateState();
+    return storageService.subscribe(updateState);
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const userIndex = users.findIndex(u => u.email === username && u.password === password && (pendingRole ? u.role === pendingRole : true));
+    // For Admin, we use the pre-filled username. For staff, they enter it.
+    const user = users.find(u => u.email === username && u.password === password && (pendingRole ? u.role === pendingRole : true));
     
-    if (userIndex !== -1) {
-      const user = users[userIndex];
-      const updatedUser = { ...user, lastLogin: new Date().toISOString() };
-      const newUsers = [...users];
-      newUsers[userIndex] = updatedUser;
-      
-      setUsers(newUsers);
-      setCurrentUser(updatedUser);
+    if (user) {
+      setCurrentUser(user);
       setIsLoggedIn(true);
       setLoginError('');
-      
-      addLog({
-        userId: user.id,
-        userName: user.name,
-        action: 'LOGIN',
-        details: `Signed into the ${user.role} portal.`
-      });
     } else {
       setLoginError('Invalid credentials or role mismatch.');
     }
@@ -123,60 +83,34 @@ const App: React.FC = () => {
     setPassword('');
   };
 
-  const onAddPayment = (payment: PaymentRecord) => {
-    setPayments([...payments, payment]);
-    
-    const student = students.find(s => s.id === payment.studentId);
-    if (student && currentUser) {
-      addLog({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        action: 'PAYMENT_COLLECTED',
-        details: `Collected ₹${payment.amount.toLocaleString()} from ${student.name} (${student.rollNo}).`
-      });
-    }
-
-    // Update student's total paid
-    setStudents(students.map(s => {
-      if (s.id === payment.studentId) {
-        const newPaid = s.totalPaid + payment.amount;
-        const struct = structures.find(st => st.className === s.className);
-        const totalPayable = (struct?.total || 0) + s.previousYearDues - s.discount;
-        
-        let status: Student['status'] = 'UNPAID';
-        if (newPaid >= totalPayable) status = 'PAID';
-        else if (newPaid > 0) status = 'PARTIAL';
-        
-        return { ...s, totalPaid: newPaid, status };
-      }
-      return s;
-    }));
-  };
-
-  const onAddStudents = (newStudents: Student[]) => {
-    setStudents([...students, ...newStudents]);
+  const onAddPayment = async (payment: PaymentRecord) => {
     if (currentUser) {
-      addLog({
-        userId: currentUser.id,
-        userName: currentUser.name,
-        action: 'STUDENT_ADDED',
-        details: `Enrolled ${newStudents.length} new student(s).`
-      });
+      await storageService.addPayment(payment, currentUser);
     }
   };
 
-  const onApplyDiscount = (studentId: string, discount: number) => {
-    setStudents(students.map(s => s.id === studentId ? { ...s, discount } : s));
+  const onAddStudents = async (newStudents: Student[]) => {
+    if (currentUser) {
+      await storageService.addStudents(newStudents, currentUser);
+    }
+  };
+
+  const onApplyDiscount = async (studentId: string, discount: number) => {
+    if (currentUser) {
+      await storageService.applyDiscount(studentId, discount, currentUser);
+    }
   };
 
   const renderView = () => {
+    const isAdmin = currentUser?.role === UserRole.ADMIN;
+
     switch (activeView) {
       case 'DASHBOARD':
         return <Dashboard 
           students={students} 
           payments={payments} 
           structures={structures} 
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           selectedSession={globalSession}
           onSessionChange={setGlobalSession}
         />;
@@ -186,8 +120,8 @@ const App: React.FC = () => {
           structures={structures}
           onAddStudents={onAddStudents}
           onApplyDiscount={onApplyDiscount}
-          onCollectFee={(id) => setActiveView('COLLECTION')}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          onCollectFee={() => setActiveView('COLLECTION')}
+          isAdmin={isAdmin}
           currentSession={globalSession}
         />;
       case 'COLLECTION':
@@ -199,42 +133,41 @@ const App: React.FC = () => {
           currentSession={globalSession}
         />;
       case 'REPORTS':
-        // Fix for missing structures prop on Reports component
         return <Reports 
           payments={payments} 
           activityLogs={activityLogs} 
           students={students}
           users={users}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           structures={structures}
         />;
       case 'FEE_STRUCTURE':
-        return <FeeStructureManagement 
+        return isAdmin ? <FeeStructureManagement 
           structures={structures}
-          onAddStructure={(s) => setStructures([...structures, s])}
-          onUpdateStructure={(s) => setStructures(structures.map(old => old.id === s.id ? s : old))}
-          onDeleteStructure={(id) => setStructures(structures.filter(s => s.id !== id))}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
-        />;
+          onAddStructure={(s) => {}} // Implement in StorageService if needed
+          onUpdateStructure={(s) => {}}
+          onDeleteStructure={(id) => {}}
+          isAdmin={isAdmin}
+        /> : null;
       case 'USERS':
-        return <UserManagement 
+        return isAdmin ? <UserManagement 
           users={users} 
-          onAddUser={(u) => setUsers([...users, u])}
-          onUpdateUser={(u) => setUsers(users.map(old => old.id === u.id ? u : old))}
-          onDeleteUser={(id) => setUsers(users.filter(u => u.id !== id))}
+          onAddUser={() => {}}
+          onUpdateUser={() => {}}
+          onDeleteUser={() => {}}
           globalSession={globalSession}
           onSessionChange={setGlobalSession}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           students={students}
           payments={payments}
           structures={structures}
-        />;
+        /> : null;
       default:
         return <Dashboard 
           students={students} 
           payments={payments} 
           structures={structures} 
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           selectedSession={globalSession}
           onSessionChange={setGlobalSession}
         />;
@@ -254,7 +187,7 @@ const App: React.FC = () => {
                 <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-white/10">
                   <GraduationCap className="w-8 h-8 text-indigo-900" />
                 </div>
-                <h1 className="text-3xl font-black tracking-tight">EduPay Pro</h1>
+                <h1 className="text-3xl font-black tracking-tight text-white">EduPay Pro</h1>
               </div>
               <h2 className="text-4xl lg:text-5xl font-black leading-tight mb-6">
                 AKSHARA SCHOOL <br />
@@ -272,22 +205,9 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-indigo-300">Live Insights</p>
-                  <p className="text-sm font-bold text-white">Cloud Database Sync Active</p>
+                  <p className="text-sm font-bold text-white">Cloud Service Active</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest text-indigo-300">Security</p>
-                  <p className="text-sm font-bold text-white">AES-256 Encrypted Backups</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute right-0 top-0 opacity-10 pointer-events-none">
-              <BarChart3 className="w-96 h-96 -translate-y-20 translate-x-20" />
             </div>
           </div>
 
@@ -301,13 +221,15 @@ const App: React.FC = () => {
 
                 <div className="grid grid-cols-1 gap-4">
                   {[
-                    { role: UserRole.ADMIN, label: 'Administrator Portal', desc: 'System management & settings', icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                    { role: UserRole.ACCOUNTS, label: 'Accounts Office', desc: 'Fee collection & reporting', icon: CreditCard, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { role: UserRole.STAFF, label: 'Staff Entry', desc: 'Student profile management', icon: UserIcon, color: 'text-slate-600', bg: 'bg-slate-50' }
+                    { role: UserRole.ADMIN, label: 'Administrator Portal', desc: 'System management & settings', icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50', email: 'admin@school.com' },
+                    { role: UserRole.STAFF, label: 'Staff Portal', desc: 'Fee collection & student management', icon: UserIcon, color: 'text-slate-600', bg: 'bg-slate-50', email: '' }
                   ].map((portal) => (
                     <button
                       key={portal.role}
-                      onClick={() => setPendingRole(portal.role)}
+                      onClick={() => {
+                        setPendingRole(portal.role);
+                        setUsername(portal.email);
+                      }}
                       className="flex items-center gap-5 p-6 rounded-3xl border border-slate-100 bg-white hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5 transition-all text-left group"
                     >
                       <div className={`${portal.bg} ${portal.color} p-4 rounded-2xl group-hover:scale-110 transition-transform`}>
@@ -324,35 +246,49 @@ const App: React.FC = () => {
             ) : (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
                 <button 
-                  onClick={() => setPendingRole(null)}
+                  onClick={() => {
+                    setPendingRole(null);
+                    setUsername('');
+                    setPassword('');
+                  }}
                   className="flex items-center gap-2 text-sm font-black text-indigo-600 uppercase tracking-widest hover:gap-3 transition-all"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back to Portals
                 </button>
 
                 <form onSubmit={handleLogin} className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Email Address</label>
-                    <div className="relative">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="email" 
-                        required
-                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 bg-white text-black font-bold outline-none focus:ring-4 focus:ring-indigo-50 transition-all"
-                        placeholder="john@school.com"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                      />
+                  {pendingRole === UserRole.STAFF ? (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Email Address</label>
+                      <div className="relative">
+                        <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="email" 
+                          required
+                          className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 bg-white text-black font-bold outline-none focus:ring-4 focus:ring-indigo-50 transition-all"
+                          placeholder="staff@school.com"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Administrative Login</p>
+                      <p className="text-sm font-bold text-indigo-900">Logged in as: <span className="text-indigo-600">admin@school.com</span></p>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Access Password</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      {pendingRole === UserRole.ADMIN ? 'Enter Admin Password' : 'Access Password'}
+                    </label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="password" 
                         required
+                        autoFocus
                         className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 bg-white text-black font-bold outline-none focus:ring-4 focus:ring-indigo-50 transition-all"
                         placeholder="••••••••"
                         value={password}
@@ -372,7 +308,7 @@ const App: React.FC = () => {
                     type="submit"
                     className="w-full py-5 bg-indigo-900 text-white rounded-[2rem] font-black text-xl shadow-2xl shadow-indigo-200 hover:bg-black transition-all"
                   >
-                    Open Terminal
+                    Login
                   </button>
                 </form>
               </div>

@@ -1,11 +1,9 @@
 
-// Add missing default export and close truncated JSX tags.
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   AlertCircle, 
   Users, 
-  User,
   Table as TableIcon,
   BarChart3, 
   CalendarDays, 
@@ -14,7 +12,9 @@ import {
   Wallet,
   Smartphone,
   Banknote,
-  GraduationCap
+  Cpu,
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -30,6 +30,7 @@ import {
   Legend
 } from 'recharts';
 import { Student, PaymentRecord, ClassFeeStructure } from '../types';
+import { getFinancialForecasting } from '../services/geminiService';
 
 interface DashboardProps {
   students: Student[];
@@ -47,14 +48,26 @@ const Dashboard: React.FC<DashboardProps> = ({
   isAdmin, 
   selectedSession
 }) => {
-  // Local state for Dashboard viewing defaults to global session
   const [viewSession, setViewSession] = useState(selectedSession);
+  const [aiInsight, setAiInsight] = useState<any>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const availableSessions = ['2023-24', '2024-25', '2025-26'];
 
-  // Sync with global session if it changes externally
   useEffect(() => {
     setViewSession(selectedSession);
   }, [selectedSession]);
+
+  useEffect(() => {
+    const fetchAiForecast = async () => {
+      if (students.length > 0) {
+        setIsAiLoading(true);
+        const forecast = await getFinancialForecasting(students, payments, structures);
+        setAiInsight(forecast);
+        setIsAiLoading(false);
+      }
+    };
+    fetchAiForecast();
+  }, [students, payments, structures]);
 
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -100,60 +113,20 @@ const Dashboard: React.FC<DashboardProps> = ({
     ...(isAdmin ? [{ label: 'Amount In Hand', value: `₹${totalCollectedSession.toLocaleString('en-IN')}`, icon: Wallet, color: 'text-emerald-700', bg: 'bg-emerald-50 border border-emerald-100' }] : []),
   ];
 
-  // Generate metrics for only the last 5 days
   const dailyMetrics = Array.from({ length: 5 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - (4 - i)); // Go back 4 days, then 3, 2, 1, 0 (today)
+    d.setDate(d.getDate() - (4 - i));
     const dayDate = d.getDate();
     const dayMonth = d.getMonth();
     const dayYear = d.getFullYear();
-    
     const dayPayments = filteredPayments.filter(p => {
       const pd = new Date(p.date);
       return pd.getDate() === dayDate && pd.getMonth() === dayMonth && pd.getFullYear() === dayYear;
     });
-
     const cashAmount = dayPayments.filter(p => p.method === 'CASH').reduce((s, p) => s + p.amount, 0);
     const onlineAmount = dayPayments.filter(p => p.method === 'ONLINE').reduce((s, p) => s + p.amount, 0);
-    
-    // Format label as "DD MMM"
-    const label = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-    
-    return { day: label, cashAmount, onlineAmount, total: cashAmount + onlineAmount };
+    return { day: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }), cashAmount, onlineAmount, total: cashAmount + onlineAmount };
   });
-
-  const academicMonths = [
-    { name: 'Jun', month: 5, yearOffset: 0 }, { name: 'Jul', month: 6, yearOffset: 0 }, { name: 'Aug', month: 7, yearOffset: 0 },
-    { name: 'Sep', month: 8, yearOffset: 0 }, { name: 'Oct', month: 9, yearOffset: 0 }, { name: 'Nov', month: 10, yearOffset: 0 },
-    { name: 'Dec', month: 11, yearOffset: 0 }, { name: 'Jan', month: 0, yearOffset: 1 }, { name: 'Feb', month: 1, yearOffset: 1 },
-    { name: 'Mar', month: 2, yearOffset: 1 }, { name: 'Apr', month: 3, yearOffset: 1 }, { name: 'May', month: 4, yearOffset: 1 },
-  ];
-
-  const sessionStartYear = parseInt(viewSession.split('-')[0]) || 2024;
-  const monthlyTrendData = academicMonths.map(({ name, month, yearOffset }) => {
-    const targetYear = sessionStartYear + yearOffset;
-    const amount = filteredPayments.filter(p => {
-      const d = new Date(p.date);
-      return d.getMonth() === month && d.getFullYear() === targetYear;
-    }).reduce((s, p) => s + p.amount, 0);
-    const isCurrent = now.getMonth() === month && now.getFullYear() === targetYear;
-    return { name, amount, isCurrent };
-  });
-
-  const uniqueClasses = Array.from(new Set(filteredStudents.map(s => s.className))).sort();
-  const classEnrollment = uniqueClasses.map(className => {
-    const classStudents = filteredStudents.filter(s => s.className === className);
-    return {
-      className,
-      total: classStudents.length,
-      boys: classStudents.filter(s => s.gender === 'Male').length,
-      girls: classStudents.filter(s => s.gender === 'Female').length
-    };
-  });
-
-  const grandTotalStudents = classEnrollment.reduce((sum, item) => sum + item.total, 0);
-  const grandTotalBoys = classEnrollment.reduce((sum, item) => sum + item.boys, 0);
-  const grandTotalGirls = classEnrollment.reduce((sum, item) => sum + item.girls, 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -161,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-indigo-600 rounded-xl text-white"><BarChart3 className="w-6 h-6" /></div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Financial Overview</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight text-slate-900">Financial Overview</h1>
           </div>
           <p className="text-slate-500 text-sm font-medium">Analytics for the selected viewing session.</p>
         </div>
@@ -201,9 +174,67 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-8"><CalendarDays className="w-5 h-5 text-indigo-600" />Last 5 Days Collection Flow</h3>
-          <div className="h-[360px]">
+        {/* Forecast Card */}
+        <div className="lg:col-span-1 bg-indigo-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl text-indigo-300">
+                  <Cpu className={`w-6 h-6 ${isAiLoading ? 'animate-spin' : ''}`} />
+                </div>
+                <h3 className="text-lg font-black tracking-tight">AI Financial Auditor</h3>
+              </div>
+              {aiInsight && (
+                <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase rounded-lg border border-emerald-500/30 flex items-center gap-1">
+                  <Zap className="w-3 h-3 fill-emerald-400" />
+                  Live Sync
+                </div>
+              )}
+            </div>
+
+            {isAiLoading ? (
+              <div className="space-y-4 py-8 flex flex-col items-center text-center">
+                <RefreshCw className="w-10 h-10 text-indigo-400 animate-spin" />
+                <p className="text-indigo-300 text-sm font-medium animate-pulse">Analyzing real-time transaction data...</p>
+              </div>
+            ) : aiInsight ? (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Health Score</p>
+                    <p className="text-5xl font-black">{aiInsight.healthScore}%</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Target</p>
+                    <p className="text-xl font-black text-indigo-200">95%</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Smart Forecast</p>
+                    <p className="text-sm font-medium leading-relaxed">{aiInsight.forecast}</p>
+                  </div>
+                  <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                       <AlertCircle className="w-3 h-3" /> Critical Action
+                    </p>
+                    <p className="text-sm font-bold text-amber-200">{aiInsight.actionItem}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-indigo-400 italic">
+                No financial data available for audit.
+              </div>
+            )}
+          </div>
+          <Cpu className="absolute -right-12 -bottom-12 w-48 h-48 text-white/5 group-hover:rotate-12 transition-transform duration-1000" />
+        </div>
+
+        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-8"><CalendarDays className="w-5 h-5 text-indigo-600" />Real-time Collection Stream</h3>
+          <div className="h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dailyMetrics}>
                 <defs>
@@ -219,58 +250,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Area name="UPI" type="monotone" dataKey="onlineAmount" stackId="1" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorOnline)" />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Student Strength Particulars Table */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
-              <TableIcon className="w-5 h-5" />
-            </div>
-            <h3 className="text-lg font-black text-slate-900">Student Strength</h3>
-          </div>
-          
-          <div className="flex-1 overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Class</th>
-                  <th className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Boys</th>
-                  <th className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Girls</th>
-                  <th className="py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {classEnrollment.map((item, idx) => (
-                  <tr key={idx} className="group hover:bg-slate-50 transition-colors">
-                    <td className="py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                        <span className="font-bold text-slate-700 text-sm">{item.className}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className="text-xs font-medium text-slate-500">{item.boys}</span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className="text-xs font-medium text-slate-500">{item.girls}</span>
-                    </td>
-                    <td className="py-4 text-right">
-                      <span className="text-sm font-black text-slate-900">{item.total}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-indigo-50/50 border-t-2 border-indigo-100">
-                  <td className="py-4 font-black text-indigo-900 text-xs uppercase tracking-widest">Total Strength</td>
-                  <td className="py-4 text-center font-black text-indigo-700 text-xs">{grandTotalBoys}</td>
-                  <td className="py-4 text-center font-black text-indigo-700 text-xs">{grandTotalGirls}</td>
-                  <td className="py-4 text-right font-black text-indigo-900 text-sm">{grandTotalStudents}</td>
-                </tr>
-              </tfoot>
-            </table>
           </div>
         </div>
       </div>
