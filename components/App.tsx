@@ -170,13 +170,15 @@ const App: React.FC = () => {
   };
 
   const renderView = () => {
+    const isAdmin = currentUser?.role === UserRole.ADMIN;
+
     switch (activeView) {
       case 'DASHBOARD':
         return <Dashboard 
           students={students} 
           payments={payments} 
           structures={structures} 
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           selectedSession={globalSession}
           onSessionChange={setGlobalSession}
         />;
@@ -187,7 +189,7 @@ const App: React.FC = () => {
           onAddStudents={onAddStudents}
           onApplyDiscount={onApplyDiscount}
           onCollectFee={(id) => setActiveView('COLLECTION')}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           currentSession={globalSession}
         />;
       case 'COLLECTION':
@@ -199,24 +201,31 @@ const App: React.FC = () => {
           currentSession={globalSession}
         />;
       case 'REPORTS':
-        // Fix for missing structures prop on Reports component
         return <Reports 
           payments={payments} 
           activityLogs={activityLogs} 
           students={students}
           users={users}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           structures={structures}
         />;
       case 'FEE_STRUCTURE':
+        if (!isAdmin) {
+          setActiveView('DASHBOARD');
+          return null;
+        }
         return <FeeStructureManagement 
           structures={structures}
           onAddStructure={(s) => setStructures([...structures, s])}
           onUpdateStructure={(s) => setStructures(structures.map(old => old.id === s.id ? s : old))}
           onDeleteStructure={(id) => setStructures(structures.filter(s => s.id !== id))}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
         />;
       case 'USERS':
+        if (!isAdmin) {
+          setActiveView('DASHBOARD');
+          return null;
+        }
         return <UserManagement 
           users={users} 
           onAddUser={(u) => setUsers([...users, u])}
@@ -224,7 +233,7 @@ const App: React.FC = () => {
           onDeleteUser={(id) => setUsers(users.filter(u => u.id !== id))}
           globalSession={globalSession}
           onSessionChange={setGlobalSession}
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           students={students}
           payments={payments}
           structures={structures}
@@ -234,7 +243,7 @@ const App: React.FC = () => {
           students={students} 
           payments={payments} 
           structures={structures} 
-          isAdmin={currentUser?.role === UserRole.ADMIN}
+          isAdmin={isAdmin}
           selectedSession={globalSession}
           onSessionChange={setGlobalSession}
         />;
@@ -302,8 +311,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 gap-4">
                   {[
                     { role: UserRole.ADMIN, label: 'Administrator Portal', desc: 'System management & settings', icon: ShieldCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                    { role: UserRole.ACCOUNTS, label: 'Accounts Office', desc: 'Fee collection & reporting', icon: CreditCard, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                    { role: UserRole.STAFF, label: 'Staff Entry', desc: 'Student profile management', icon: UserIcon, color: 'text-slate-600', bg: 'bg-slate-50' }
+                    { role: UserRole.STAFF, label: 'Staff Portal', desc: 'Fee collection & student management', icon: UserIcon, color: 'text-slate-600', bg: 'bg-slate-50' }
                   ].map((portal) => (
                     <button
                       key={portal.role}

@@ -1,4 +1,5 @@
 
+// Added ACCOUNTS to UserRole enum to resolve reference errors in App.tsx
 export enum UserRole {
   ADMIN = 'ADMIN',
   STAFF = 'STAFF',
@@ -53,6 +54,15 @@ export interface PaymentRecord {
   receivedBy: string;
   transactionId?: string;
   note?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: 'LOGIN' | 'PAYMENT_COLLECTED' | 'STUDENT_ADDED' | 'STRUCTURE_UPDATED';
+  details: string;
+  timestamp: string;
 }
 
 export type AppView = 'DASHBOARD' | 'STUDENTS' | 'FEE_STRUCTURE' | 'COLLECTION' | 'REPORTS' | 'USERS';

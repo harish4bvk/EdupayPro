@@ -24,9 +24,11 @@ const Layout: React.FC<LayoutProps> = ({ activeView, setActiveView, currentUser,
   const navItems = [
     { id: 'DASHBOARD' as AppView, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'STUDENTS' as AppView, label: 'Students', icon: Users },
-    ...(currentUser?.role === UserRole.ADMIN ? [{ id: 'FEE_STRUCTURE' as AppView, label: 'Fee Structures', icon: FileSpreadsheet }] : []),
-    { id: 'COLLECTION' as AppView, label: 'Collect Fee', icon: Wallet },
+    ...(currentUser?.role === UserRole.ADMIN ? [
+      { id: 'FEE_STRUCTURE' as AppView, label: 'Fee Structures', icon: FileSpreadsheet },
+    ] : []),
     { id: 'REPORTS' as AppView, label: 'Reports', icon: BarChart3 },
+    { id: 'COLLECTION' as AppView, label: 'Collect Fee', icon: Wallet },
     ...(currentUser?.role === UserRole.ADMIN ? [{ id: 'USERS' as AppView, label: 'Settings', icon: Settings }] : []),
   ];
 
