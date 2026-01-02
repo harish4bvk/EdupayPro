@@ -3,22 +3,23 @@ import React, { useState } from 'react';
 import { 
   Upload, 
   Search, 
-  UserPlus,
-  Filter,
-  Download,
-  Info,
-  X,
-  Save,
-  User as UserIcon,
-  Phone,
-  Hash,
-  Briefcase,
-  Calculator,
-  Wallet,
-  Tag,
-  FileSpreadsheet,
-  CheckCircle2,
-  AlertCircle
+  UserPlus, 
+  Filter, 
+  Download, 
+  Info, 
+  X, 
+  Save, 
+  User as UserIcon, 
+  Phone, 
+  Hash, 
+  Briefcase, 
+  Calculator, 
+  Wallet, 
+  Tag, 
+  FileSpreadsheet, 
+  CheckCircle2, 
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 import { Student, ClassFeeStructure } from '../types';
 
@@ -346,96 +347,95 @@ const StudentManagement: React.FC<StudentManagementProps> = ({
         </div>
       )}
 
-      {/* Bulk Upload Modal */}
+      {/* Bulk Upload Modal - Reorganized into Vertical Steps */}
       {isAdmin && showUploadModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-in zoom-in duration-300 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50/30">
+          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl animate-in zoom-in duration-300 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-900 text-white">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">Bulk Upload Students</h3>
-                <p className="text-slate-500 text-sm mt-1">Upload an Excel/CSV file with student records.</p>
+                <h3 className="text-xl font-bold">Bulk Student Enrollment</h3>
+                <p className="text-indigo-200 text-sm mt-0.5">Follow the steps below to import records.</p>
               </div>
-              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
-                <X className="w-5 h-5" />
+              <button onClick={() => setShowUploadModal(false)} className="text-indigo-200 hover:text-white transition-colors p-1">
+                <X className="w-6 h-6" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
-                    <h4 className="text-sm font-black text-indigo-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4" /> Step 1: Prepare Template
-                    </h4>
-                    <p className="text-xs text-indigo-700 leading-relaxed mb-6">
-                      Download the pre-defined format containing all mandatory headers. Excel will automatically recognize the column structure.
-                    </p>
-                    <button 
-                      onClick={downloadTemplate}
-                      className="w-full flex items-center justify-center gap-2 py-3 bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl font-bold hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all shadow-sm"
-                    >
-                      <Download className="w-5 h-5" />
-                      Download Excel Format
-                    </button>
+            <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-slate-50/30">
+              {/* Step 1: Template */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">1</div>
+                  <h4 className="font-bold text-slate-900">Download Official Excel Format</h4>
+                </div>
+                
+                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-6 group hover:border-indigo-300 transition-colors">
+                  <div className="bg-indigo-50 p-4 rounded-2xl group-hover:bg-indigo-100 transition-colors">
+                    <FileSpreadsheet className="w-10 h-10 text-indigo-600" />
                   </div>
+                  <div className="flex-1 text-center md:text-left">
+                    <p className="text-sm font-medium text-slate-700 mb-1">Standardized Enrollment Template</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">Contains pre-defined headers. Do not rename columns for successful processing.</p>
+                  </div>
+                  <button 
+                    onClick={downloadTemplate}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 whitespace-nowrap"
+                  >
+                    <Download className="w-4 h-4" />
+                    Get Template
+                  </button>
+                </div>
+              </div>
 
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Mandatory Columns
-                    </h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {mandatoryFields.map((f, idx) => (
-                        <div key={idx} className="bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-900">{f.name}</span>
-                          <span className="text-[9px] text-slate-400 truncate">{f.description}</span>
-                        </div>
-                      ))}
-                    </div>
+              <div className="flex justify-center">
+                <ArrowRight className="w-6 h-6 text-slate-300 rotate-90" />
+              </div>
+
+              {/* Step 2: Upload */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">2</div>
+                  <h4 className="font-bold text-slate-900">Upload Populated Data File</h4>
+                </div>
+                
+                <div className="relative border-2 border-dashed border-indigo-200 rounded-3xl p-10 flex flex-col items-center justify-center text-center hover:border-indigo-400 hover:bg-white transition-all group bg-white/50">
+                  <input 
+                    type="file" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                    id="student-file-bulk-final" 
+                    accept=".csv, .xlsx, .xls" 
+                    onChange={handleFileUpload}
+                  />
+                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    <Upload className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <p className="text-slate-900 font-bold mb-1">Click to select or drag and drop</p>
+                  <p className="text-slate-500 text-[11px] mb-6">Supports CSV, XLSX, and XLS formats</p>
+                  
+                  <div className="px-8 py-3 bg-white border-2 border-indigo-100 text-indigo-600 rounded-xl text-sm font-black group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all">
+                    Browse Files
                   </div>
                 </div>
+              </div>
 
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Upload className="w-4 h-4 text-indigo-600" /> Step 2: Upload File
-                  </h4>
-                  <div className="flex-1 border-2 border-dashed border-indigo-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:border-indigo-400 transition-colors bg-indigo-50/10 group">
-                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                      <Upload className="w-8 h-8 text-indigo-600" />
-                    </div>
-                    <p className="text-slate-900 font-bold mb-1">Click to browse or Drag & Drop</p>
-                    <p className="text-slate-500 text-[10px] mb-6">Supported formats: .csv, .xlsx, .xls</p>
-                    
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      id="student-file-bulk" 
-                      accept=".csv, .xlsx, .xls" 
-                      onChange={handleFileUpload}
-                    />
-                    <label 
-                      htmlFor="student-file-bulk"
-                      className="px-8 py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 cursor-pointer shadow-lg shadow-indigo-100 transition-all"
-                    >
-                      Select File
-                    </label>
-                  </div>
-
-                  <div className="mt-4 flex items-start gap-2 bg-amber-50 p-3 rounded-xl border border-amber-100">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-800 leading-tight">
-                      <strong>Pro-tip:</strong> Ensure 'ClassName' exactly matches your defined Fee Structures to avoid calculation errors.
-                    </p>
-                  </div>
+              {/* Important Notes */}
+              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">Crucial Note</p>
+                  <p className="text-[11px] text-amber-800 leading-normal">
+                    The 'ClassName' field in your file must match exactly with the Class Names defined in your <strong>Fee Structures</strong> to calculate correct balances.
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
               <button 
                 onClick={() => setShowUploadModal(false)}
-                className="px-6 py-2 text-slate-600 font-bold hover:text-slate-800 text-sm"
+                className="px-8 py-2.5 text-slate-500 font-bold hover:text-slate-900 transition-colors text-xs uppercase tracking-[0.15em]"
               >
-                Close
+                Close Window
               </button>
             </div>
           </div>

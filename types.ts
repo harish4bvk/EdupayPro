@@ -10,6 +10,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  lastLogin?: string;
+  isOnline?: boolean;
 }
 
 export interface FeeComponent {

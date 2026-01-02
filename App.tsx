@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState<AppView>('DASHBOARD');
+  const [globalSession, setGlobalSession] = useState('2024-25');
   
   // Login flow states
   const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
@@ -52,16 +53,25 @@ const App: React.FC = () => {
     // Demo authentication logic
     let isValid = false;
     if (pendingRole === UserRole.ADMIN) {
-      // Admin: Password only
       isValid = password === 'admin123';
     } else if (pendingRole === UserRole.ACCOUNTS) {
-      // Accounts: Username and Password
       isValid = username.toLowerCase() === 'accounts' && password === 'staff123';
     }
 
     if (isValid) {
-      const user = users.find(u => u.role === pendingRole) || users[0];
-      setCurrentUser(user);
+      const userToLogin = users.find(u => u.role === pendingRole) || users[0];
+      
+      // Update global user list with online status and timestamp
+      const updatedUsers = users.map(u => 
+        u.id === userToLogin.id 
+          ? { ...u, isOnline: true, lastLogin: new Date().toLocaleString() } 
+          : u
+      );
+      
+      setUsers(updatedUsers);
+      const loggedInUser = updatedUsers.find(u => u.id === userToLogin.id)!;
+      
+      setCurrentUser(loggedInUser);
       setIsLoggedIn(true);
       setPendingRole(null);
       setUsername('');
@@ -75,6 +85,9 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    if (currentUser) {
+      setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, isOnline: false } : u));
+    }
     setIsLoggedIn(false);
     setCurrentUser(null);
     setPendingRole(null);
@@ -130,7 +143,6 @@ const App: React.FC = () => {
     setUsers(prev => prev.filter(u => u.id !== userId));
   };
 
-  // Structure Handlers
   const handleAddStructure = (newStructure: ClassFeeStructure) => {
     setStructures(prev => [...prev, newStructure]);
   };
@@ -143,7 +155,6 @@ const App: React.FC = () => {
     setStructures(prev => prev.filter(s => s.id !== structureId));
   };
 
-  // Clear pre-selected student when leaving collection view (optional logic)
   useEffect(() => {
     if (activeView !== 'COLLECTION') {
       setPreSelectedStudentId(null);
@@ -301,7 +312,16 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'DASHBOARD':
-        return <Dashboard students={students} payments={payments} structures={structures} />;
+        return (
+          <Dashboard 
+            students={students} 
+            payments={payments} 
+            structures={structures} 
+            isAdmin={currentUser?.role === UserRole.ADMIN}
+            selectedSession={globalSession}
+            onSessionChange={setGlobalSession}
+          />
+        );
       case 'STUDENTS':
         return (
           <StudentManagement 
@@ -310,7 +330,8 @@ const App: React.FC = () => {
             onAddStudents={handleAddStudents} 
             onApplyDiscount={handleUpdateDiscount}
             onCollectFee={handleGoToPayment}
-            isAdmin={currentUser?.role === UserRole.ADMIN} 
+            isAdmin={currentUser?.role === UserRole.ADMIN}
+            currentSession={globalSession}
           />
         );
       case 'FEE_STRUCTURE':
