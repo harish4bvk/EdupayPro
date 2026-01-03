@@ -24,8 +24,7 @@ import {
   ArrowLeft,
   AlertCircle,
   User as UserIcon,
-  TrendingUp,
-  CreditCard
+  TrendingUp
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -63,7 +62,6 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // For Admin, we use the pre-filled username. For staff, they enter it.
     const user = users.find(u => u.email === username && u.password === password && (pendingRole ? u.role === pendingRole : true));
     
     if (user) {
@@ -144,7 +142,7 @@ const App: React.FC = () => {
       case 'FEE_STRUCTURE':
         return isAdmin ? <FeeStructureManagement 
           structures={structures}
-          onAddStructure={(s) => {}} // Implement in StorageService if needed
+          onAddStructure={(s) => {}} 
           onUpdateStructure={(s) => {}}
           onDeleteStructure={(id) => {}}
           isAdmin={isAdmin}
